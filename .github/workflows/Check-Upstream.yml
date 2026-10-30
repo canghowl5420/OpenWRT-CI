@@ -1,31 +1,38 @@
-# 上游提交监听：VIKINGYFY/immortalwrt-main有新提交时才触发构建
-# 放到 .github/workflows/ 下即可，不需要改动任何原有文件
+# =============================================================================
+# IPQ60XX-Check-Upstream.yml —— 上游提交监听
+#
+# 作用：每天定时看一次 VIKINGYFY/immortalwrt 的 main HEAD，
+#       和"上次编过的 commit"比对，不同才触发 IPQ60XX-Build。
+# 依赖：仓库变量 UPSTREAM_SHA_MAIN（首次运行不存在，会自动创建）
+# 要点：用 GITHUB_TOKEN 调 workflow_dispatch 是同仓自触发的合法路径
+# =============================================================================
 name: Check-Upstream
 
 on:
   schedule:
-    # cron 用 UTC：18:00 UTC = 次日 02:00 北京时间
-    - cron: "0 18 * * *"         # 每天 02:00（CST）检查一次
-  workflow_dispatch:
+    # cron 一律 UTC：18:00 UTC = 北京次日 02:00
+    - cron: "0 18 * * *"
+  workflow_dispatch:          # 手动入口，改完文件想立刻验证时用
 
 permissions:
-  contents: read
-  actions: write                 # 触发工作流 + 读写仓库变量都靠它
+  contents: read              # 只读仓库，不改代码
+  actions: write              # 触发工作流 + 读写 Actions 变量，必须给
 
 concurrency:
-  group: check-upstream
-  cancel-in-progress: true
+  group: check-upstream   # 同一时刻只跑一个检查
+  cancel-in-progress: true        # 新的一次进来就取消旧的，避免重复触发
 
 env:
-  UPSTREAM_REPO: VIKINGYFY/immortalwrt
-  UPSTREAM_BRANCH: main          # 编 NSS 用 main；多平台改 owrt
-  BUILD_WORKFLOW: NSS-Build.yml  # 要触发的工作流文件名
-  STATE_VAR: UPSTREAM_SHA_MAIN   # 记录"上次编过的上游 commit"
+  UPSTREAM_REPO: VIKINGYFY/immortalwrt   # 上游源码仓
+  UPSTREAM_BRANCH: main                  # 编译分支：NSS 用 main，多平台用 owrt
+  BUILD_WORKFLOW: IPQ60XX-Build.yml      # 命中变化后要触发的工作流文件名
+  STATE_VAR: UPSTREAM_SHA_MAIN           # 保存"上次编过的 commit"的变量名
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # 1) 取上游分支 HEAD。用 git ls-remote，不走 API，不消耗配额
       - name: Resolve upstream HEAD
         id: upstream
         run: |
@@ -35,9 +42,10 @@ jobs:
             echo "::error::cannot resolve upstream HEAD"
             exit 1
           fi
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"     # 输出给后续步骤
           echo "upstream HEAD = $SHA"
 
+      # 2) 与仓库变量里的旧值比较（变量不存在时视为 none）
       - name: Compare with last built
         id: diff
         env:
@@ -51,6 +59,7 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # 3) 有变化才触发构建，并把新 commit 写回变量
       - name: Trigger build
         if: steps.diff.outputs.changed == 'true'
         env:
