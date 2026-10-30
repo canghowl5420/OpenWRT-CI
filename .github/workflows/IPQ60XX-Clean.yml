@@ -1,0 +1,39 @@
+# =============================================================================
+# IPQ60XX-Clean.yml —— 清理旧产物
+#
+# 对比原 Auto-Clean.yml 的三处改动：
+#   1. cron 提前到 01:00（北京），先清理、02:00 再构建；
+#   2. releases_keep_latest 由 0 改成 3，避免把当天刚编好的包删掉；
+#   3. 日志保留 7 天，方便回看失败原因。
+# 只删产物，不删代码、不动 Secrets/Variables、不动 Actions 缓存。
+# =============================================================================
+name: IPQ60XX-Clean
+
+on:
+  schedule:
+    # 17:00 UTC = 北京次日 01:00，比 02:00 的构建早一小时
+    - cron: "0 17 * * *"
+  workflow_dispatch:            # 手动清理入口
+
+permissions:
+  contents: write               # 删 Release / Tag 需要
+  actions: write                # 删运行记录需要
+
+concurrency:
+  group: ipq60xx-clean
+  cancel-in-progress: false     # 清理不并发，避免两次同时删
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      # 用 ophub 的清理动作；参数含义见文件头的表
+      - name: Delete old releases and workflow runs
+        uses: ophub/delete-releases-workflows@main
+        with:
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          delete_releases: true         # 删 Release
+          releases_keep_latest: 3       # 最近 3 个 Release 保留（0 = 全删）
+          delete_tags: true             # 连 tag 一起删
+          delete_workflows: true        # 删已完成的运行记录
+          workflows_keep_day: 7         # 运行记录保留最近 7 天（0 = 全删）
