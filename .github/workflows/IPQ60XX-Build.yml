@@ -1,0 +1,59 @@
+# =============================================================================
+# IPQ60XX-Build.yml —— 实际编译入口
+#
+# 作用：把参数传给 IPQ60XX-Core.yml（原 WRT-CORE.yml 的副本）跑完整编译。
+# 为什么用 matrix：一个 CONFIG 档位 = 一个 job，多个档位可并行。
+# 结果：每个 job 结束都会发一个 Release（固件 + Config + kmod feed）。
+# =============================================================================
+name: IPQ60XX-Build
+
+on:
+  workflow_dispatch:            # 手动入口；自动触发由 IPQ60XX-Check-Upstream 调起
+    inputs:
+      CONFIGS:
+        description: 'JSON 数组，如 ["IPQ60XX-WIFI-YES"]'
+        required: true
+        default: '["IPQ60XX_JDCloud_re-cs-02"]'   # 当前只编京东云 RE-CS-02 所在的档位
+      PACKAGE:
+        description: '临时追加到 .config 的裸配置行（可留空）'
+        required: false
+        type: string                      # 例如 CONFIG_PACKAGE_luci-app-dockerman=y
+      TEST:
+        description: '只生成配置，不编译（2 分钟出结果，用来验证档位/包名）'
+        required: false
+        type: boolean
+        default: false
+
+permissions: write-all          # 发 Release、写缓存都需要；核心工作流沿用此权限
+
+jobs:
+  build:
+    name: ${{ matrix.CONFIG }}          # job 名就是档位名，Actions 页面一眼能认
+    strategy:
+      fail-fast: false                  # 一档失败不影响其它档
+      max-parallel: 2                   # 同时最多 2 档，防止 runner 抢资源
+      matrix:
+        CONFIG: ${{ fromJSON(inputs.CONFIGS) }}   # 把 JSON 数组展开成多个 job
+
+    # 调用本仓库的核心工作流；原 WRT-CORE.yml 不动
+    uses: ./.github/workflows/IPQ60XX-Core.yml
+
+    with:
+      # --- 档位与产物名 ---
+      WRT_CONFIG: ${{ matrix.CONFIG }}      # 决定设备列表、产物命名、tag 前缀
+      # --- 固件内置参数 ---
+      WRT_THEME: vantage                    # 默认主题，必须在 Packages.sh 已装列表里
+      WRT_NAME: OWRT                        # 主机名
+      WRT_SSID: OWRT                        # 默认 WiFi 名
+      WRT_WORD: '12345678'                  # 默认 WiFi 密码
+      WRT_IP: 192.168.10.1                  # 默认 LAN 地址
+      WRT_PW: 无                            # 仅提示文字，改了不生效
+      # --- 源码 ---
+      WRT_REPO: https://github.com/VIKINGYFY/immortalwrt.git   # 源码仓
+      WRT_BRANCH: main                                         # NSS 分支
+      WRT_SOURCE: VIKINGYFY/immortalwrt                        # 用于 tag/说明里的源标识
+      # --- 透传手动参数 ---
+      WRT_PACKAGE: ${{ inputs.PACKAGE }}    # 手动追加的配置行
+      WRT_TEST: ${{ inputs.TEST }}          # 只出配置不编译
+      # --- 本方案新增 ---
+      WRT_KMOD_FEED: true                   # 把内核模块打包成 apk 源并随 Release 发布
