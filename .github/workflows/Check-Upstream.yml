@@ -1,0 +1,62 @@
+# 上游提交监听：VIKINGYFY/immortalwrt-main有新提交时才触发构建
+# 放到 .github/workflows/ 下即可，不需要改动任何原有文件
+name: Check-Upstream
+
+on:
+  schedule:
+    # cron 用 UTC：18:00 UTC = 次日 02:00 北京时间
+    - cron: "0 18 * * *"         # 每天 02:00（CST）检查一次
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write                 # 触发工作流 + 读写仓库变量都靠它
+
+concurrency:
+  group: check-upstream
+  cancel-in-progress: true
+
+env:
+  UPSTREAM_REPO: VIKINGYFY/immortalwrt
+  UPSTREAM_BRANCH: main          # 编 NSS 用 main；多平台改 owrt
+  BUILD_WORKFLOW: NSS-Build.yml  # 要触发的工作流文件名
+  STATE_VAR: UPSTREAM_SHA_MAIN   # 记录"上次编过的上游 commit"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve upstream HEAD
+        id: upstream
+        run: |
+          SHA=$(git ls-remote "https://github.com/${UPSTREAM_REPO}.git" \
+                "refs/heads/${UPSTREAM_BRANCH}" | cut -f1)
+          if [ -z "$SHA" ]; then
+            echo "::error::cannot resolve upstream HEAD"
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "upstream HEAD = $SHA"
+
+      - name: Compare with last built
+        id: diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LAST=$(gh variable get "$STATE_VAR" --repo "$GITHUB_REPOSITORY" 2>/dev/null || echo none)
+          echo "last built = $LAST"
+          if [ "$LAST" = "${{ steps.upstream.outputs.sha }}" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger build
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run "$BUILD_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref main
+          gh variable set "$STATE_VAR" --repo "$GITHUB_REPOSITORY" \
+            --body "${{ steps.upstream.outputs.sha }}"
+          echo "triggered $BUILD_WORKFLOW for ${{ steps.upstream.outputs.sha }}"
