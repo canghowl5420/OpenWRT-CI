@@ -42,7 +42,7 @@ jobs:
       # --- 档位与产物名 ---
       WRT_CONFIG: ${{ matrix.CONFIG }}      # 决定设备列表、产物命名、tag 前缀
       # --- 固件内置参数 ---
-      WRT_THEME: vantage                    # 默认主题，必须在 Packages.sh 已装列表里
+      WRT_THEME: aurora                     # 默认主题，必须在 Packages.sh 已装列表里
       WRT_NAME: OWRT                        # 主机名
       WRT_SSID: OWRT                        # 默认 WiFi 名
       WRT_WORD: '12345678'                  # 默认 WiFi 密码
@@ -57,3 +57,4 @@ jobs:
       WRT_TEST: ${{ inputs.TEST }}          # 只出配置不编译
       # --- 本方案新增 ---
       WRT_KMOD_FEED: true                   # 把内核模块打包成 apk 源并随 Release 发布
+      WRT_PRUNE_THEMES: true                # 删掉 Packages.sh 装的第三方主题源码，只留 bootstrap 和 WRT_THEME: aurora
