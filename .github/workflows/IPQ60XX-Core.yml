@@ -64,6 +64,10 @@ on:
         required: false
         default: true
         type: boolean
+      WRT_PRUNE_THEMES:
+        required: false
+        default: true
+        type: boolean
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -199,6 +203,18 @@ jobs:
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
           $GITHUB_WORKSPACE/.github/scripts/prepare-i2c-tools.sh
+
+          # 主题修剪：只保留 bootstrap 与当前选中的 WRT_THEME，其余第三方主题源码删掉
+          # bootstrap 来自 feeds（package/feeds/luci/luci-theme-bootstrap），不会被这条 glob 命中
+          if [ "${{ inputs.WRT_PRUNE_THEMES }}" = 'true' ]; then
+            for D in ./package/luci-theme-*; do
+              [ -d "$D" ] || continue
+              case "$D" in
+                *bootstrap*|*"$WRT_THEME"*) echo "keep theme: $D" ;;
+                *) rm -rf "$D"; echo "pruned theme: $D" ;;
+              esac
+            done
+          fi
 
       # ① 新增：把本仓库本 tag 的 apk 源写进固件的 /etc/apk/repositories.d/
       - name: Custom APK Feed
