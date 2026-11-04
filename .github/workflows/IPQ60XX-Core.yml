@@ -360,11 +360,8 @@ jobs:
             ./wrt/upload/*.*
             ./wrt/upload-feed/*
           body: |
-            这是个平台固件包，内含多个设备！
-            请注意选择你需要的设备固件！
-            不要问，刷就完事了！
-
-            全系带开源硬件加速，别问了！
+            暂时只提供JDCloud_RE-CS-02固件包
+            已包含硬件加速
 
             源码：${{env.WRT_REPO}}
             分支：${{env.WRT_BRANCH}}
