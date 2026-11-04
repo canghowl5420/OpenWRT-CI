@@ -13,7 +13,7 @@ on:
       CONFIGS:
         description: 'JSON 数组，如 ["IPQ60XX-WIFI-YES"]'
         required: true
-        default: '["IPQ60XX_JDCloud_re-cs-02"]'   # 当前只编京东云 RE-CS-02 所在的档位
+        default: '["IPQ60XX_JDCloud_RE-CS-02"]'   # 当前只编京东云 RE-CS-02 所在的档位
       PACKAGE:
         description: '临时追加到 .config 的裸配置行（可留空）'
         required: false
@@ -56,5 +56,5 @@ jobs:
       WRT_PACKAGE: ${{ inputs.PACKAGE }}    # 手动追加的配置行
       WRT_TEST: ${{ inputs.TEST }}          # 只出配置不编译
       # --- 本方案新增 ---
-      WRT_KMOD_FEED: true                   # 把内核模块打包成 apk 源并随 Release 发布
+      WRT_KMOD_FEED: false                  # 把内核模块打包成 apk 源并随 Release 发布
       WRT_PRUNE_THEMES: true                # 删掉 Packages.sh 装的第三方主题源码，只留 bootstrap 和 WRT_THEME: aurora
