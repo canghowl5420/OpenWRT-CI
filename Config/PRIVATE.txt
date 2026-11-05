@@ -17,3 +17,5 @@ CONFIG_PACKAGE_kmod-ipsec4=y
 CONFIG_PACKAGE_kmod-ipsec6=y
 CONFIG_PACKAGE_kmod-ipt-conntrack-extra=y
 CONFIG_PACKAGE_kmod-ipt-ipsec=y
+UPDATE_PACKAGE "luci-app-strongswan-swanctl" "canghowl5420/swanctl-ng" "master"
+CONFIG_PACKAGE_luci-app-strongswan-swanctl=y
